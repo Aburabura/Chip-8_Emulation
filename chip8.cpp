@@ -1,24 +1,9 @@
-#include <cstdint>
-#include <fstream>
-#include <cstring>
+#include "chip8.hpp"
 #include <chrono>
+#include <cstdint>
+#include <cstring>
+#include <fstream>
 #include <random>
-
-class Chip8
-{
-    public:
-        uint8_t registers[16]{};
-        uint8_t memory[4096]{};
-        uint16_t index{};
-        uint16_t pc{};
-        uint16_t stack[16]{};
-        uint8_t sp{};
-        uint8_t delayTimer{};
-        uint8_t soundTimer{};
-        uint8_t keypad[16]{};
-        uint32_t video[64 * 32]{};
-        uint16_t opcode;
-};
 
 const unsigned int FONTSET_SIZE = 80;
 const unsigned int START_ADDRESS = 0x200;
@@ -274,6 +259,36 @@ void Chip8::OP_8xy7()
     }
 
     registers[Vx] = registers[Vx] - registers[Vy];
+}
+
+// Set Vx - Vx SHL 1, SHL Vx {, Vy}
+void Chip8::OP_8xyE()
+{
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+
+    registers[0xF] = (registers[Vx] & 0x80u) >> 7u;
+
+    registers[Vx] <<= 1;
+}
+
+// Skip next instruction if Vx !- Vy
+void Chip8::OP_9xy0()
+{
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+    uint8_t Vy = (opcode & 0x00F0u) >> 4u;
+
+    if (registers[Vx] != registers[Vy])
+    {
+        pc += 2;
+    }
+}
+
+// Set I = nnn, LB I, addr
+void Chip8::OP_Annn
+{
+    uint16_t address = opcode & 0x0FFFu;
+    
+    index = address;
 }
 
 
