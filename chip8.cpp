@@ -43,6 +43,21 @@ Chip8::Chip8()
     randByte = std::uniform_int_distribution<uint8_t>(0, 255u);
 
     table[0x0] = &Chip8::Table0;
+    table[0x1] = &Chip8::OP_1nnn;
+    table[0x2] = &Chip8::OP_2nnn;
+    table[0x3] = &Chip8::OP_3xkk;
+    table[0x4] = &Chip8::OP_4xkk;
+    table[0x5] = &Chip8::OP_5xy0;
+    table[0x6] = &Chip8::OP_6xkk;
+    table[0x7] = &Chip8::OP_7xkk;
+    table[0x8] = &Chip8::Table8;
+    table[0x9] = &Chip8::OP_9xy0;
+    table[0xA] = &Chip8::OP_Annn;
+    table[0xB] = &Chip8::OP_Bnnn;
+    table[0xC] = &Chip8::OP_Cxkk;
+    table[0xD] = &Chip8::OP_Dxyn;
+    table[0xE] = &Chip8::TableE;
+    table[0xF] = &Chip8::TableF;
 }
 
 
@@ -119,14 +134,14 @@ void Chip8::OP_NULL()
 {}
 
 // Clear the Display(CLS)
-void Chip8::OP00E0()
+void Chip8::OP_00E0()
 {
     memset(video, 0, sizeof(video));
 }
 
 // Return from a subroute(RET)
 // sets program counter to the address at the top of the stack
-void Chip8::OP00EE()
+void Chip8::OP_00EE()
 {
     --sp;
     pc = stack[sp];
@@ -365,6 +380,7 @@ void Chip8::OP_Dxyn()
     // Wrap if going beyond screen boundaries
     uint8_t xPos = registers[Vx] % VIDEO_WIDTH;
     uint8_t yPos = registers[Vy] % VIDEO_HEIGHT;
+    uint8_t height = opcode & 0x000Fu;
 
     registers[0xF] = 0;
 
@@ -406,7 +422,7 @@ void Chip8::OP_Ex9E()
 }
 
 // Skip next instruction if key with the value of Vx is not pressed. (SKNP Vx)
-void Chip8::OP_ExA1()
+void Chip8::OP_EXA1()
 {
     uint8_t Vx = (opcode & 0x0F00u) >> 8u;
 
@@ -554,7 +570,7 @@ void Chip8::OP_Fx33()
 }
 
 // Store registers V0 through Vx in memory starting at location I, LD [I], Vx
-void Chip8::OP_FX55()
+void Chip8::OP_Fx55()
 {
     uint8_t Vx = (opcode & 0x0F00u) >> 8u;
     
@@ -565,7 +581,7 @@ void Chip8::OP_FX55()
 }
 
 // Store registers V0 through Vx in memory starting at location I, LD [I], Vx
-void Chip8::OP_FX65()
+void Chip8::OP_Fx65()
 {
     uint8_t Vx = (opcode & 0x0F00u) >> 8u;
     
