@@ -41,6 +41,8 @@ Chip8::Chip8()
     }
 
     randByte = std::uniform_int_distribution<uint8_t>(0, 255u);
+
+    table[0x0] = &Chip8::Table0;
 }
 
 
@@ -69,6 +71,52 @@ void Chip8::LoadROM(char const* filename)
         delete[] buffer;
     }
 }
+
+void Chip8::Cycle()
+{
+    // Fetch
+    opcode = (memory[pc] << 8u) | memory[pc + 1];
+
+    // Incrememnbt the PC before executing
+    pc += 2;
+
+    ((*this).*(table[(opcode & 0xF000u) >> 12u]))();
+
+    // Decrememnt the delay timer if it's been set
+    if (delayTimer > 0)
+    {
+        --delayTimer;
+    }
+
+    // Decrement the sound timer if it's been set
+    if (soundTimer > 0)
+    {
+        --soundTimer;
+    }
+}
+
+void Chip8::Table0()
+{
+    ((*this).*(table0[opcode & 0x000Fu]))();
+}
+
+void Chip8::Table8()
+{
+    ((*this).*(table8[opcode & 0x000Fu]))();
+}
+
+void Chip8::TableE()
+{
+    ((*this).*(tableE[opcode & 0x000Fu]))();
+}
+
+void Chip8::TableF()
+{
+    ((*this).*(tableF[opcode & 0x00FFu]))();
+}
+
+void Chip8::OP_NULL()
+{}
 
 // Clear the Display(CLS)
 void Chip8::OP00E0()
@@ -284,11 +332,247 @@ void Chip8::OP_9xy0()
 }
 
 // Set I = nnn, LB I, addr
-void Chip8::OP_Annn
+void Chip8::OP_Annn()
 {
     uint16_t address = opcode & 0x0FFFu;
-    
+
     index = address;
+}
+
+// Jump to location nnn + V0, JP V0, addr
+void Chip8::OP_Bnnn()
+{
+    uint16_t address = opcode & 0x0FFFu;
+    pc = registers[0] + address;
+}
+
+//Set Vx = random byte AND kk
+void Chip8::OP_Cxkk()
+{
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+    uint8_t byte = opcode & 0x00FFu;
+
+    registers[Vx] = randByte(randGen) & byte;
+}
+
+//Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision (DRW Vx, Vy, nibble)
+void Chip8::OP_Dxyn()
+{
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+    uint8_t Vy = (opcode & 0x00F0u) >> 4u;
+    uint8_t byte = opcode & 0x00FFu;
+
+    // Wrap if going beyond screen boundaries
+    uint8_t xPos = registers[Vx] % VIDEO_WIDTH;
+    uint8_t yPos = registers[Vy] % VIDEO_HEIGHT;
+
+    registers[0xF] = 0;
+
+    for (unsigned int row = 0; row < height; ++row)
+    {
+        uint8_t spriteByte = memory[index + row];
+
+        for  (unsigned int col = 0; col < 8; ++col)
+        {
+            uint8_t sprintPixel = spriteByte & (0x80u >> col);
+            uint32_t* screenPixel = &video[(yPos + row) * VIDEO_WIDTH + (xPos + col)];
+
+            // Sprite Pixel is on
+            if(sprintPixel)
+            {
+                //Screen Pixel is also on
+                if(*screenPixel == 0xFFFFFFFF)
+                {
+                    registers[0xF] = 1;
+                }
+
+                *screenPixel ^= 0xFFFFFFFF;
+            }
+        }
+    }
+}
+
+// Skip next instruction if key with the value of Vx is pressed. (SKP Vx)
+void Chip8::OP_Ex9E()
+{
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+
+    uint8_t key = registers[Vx];
+
+    if (keypad[key])
+    {
+        pc += 2;
+    }
+}
+
+// Skip next instruction if key with the value of Vx is not pressed. (SKNP Vx)
+void Chip8::OP_ExA1()
+{
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+
+    uint8_t key = registers[Vx];
+
+    if (!keypad[key])
+    {
+        pc += 2;
+    }
+}
+
+// Set Vx = delay timer value LD Vx, DT
+void Chip8::OP_Fx07()
+{
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+
+    registers[Vx] = delayTimer;
+}
+
+// Wait for a key pressm store the value of the key in Vx
+void Chip8::OP_Fx0A()
+{
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+
+    if (keypad[0])
+    {
+        registers[Vx] = 0;
+    }
+    else if (keypad[1])
+    {
+        registers[Vx] = 1;
+    }
+    else if (keypad[2])
+    {
+        registers[Vx] = 2;
+    }
+    else if (keypad[3])
+    {
+        registers[Vx] = 3;
+    }
+    else if (keypad[4])
+    {
+        registers[Vx] = 4;
+    }
+    else if (keypad[5])
+    {
+        registers[Vx] = 5;
+    }
+    else if (keypad[6])
+    {
+        registers[Vx] = 6;
+    }
+    else if (keypad[7])
+    {
+        registers[Vx] = 7;
+    }
+    else if (keypad[8])
+    {
+        registers[Vx] = 8;
+    }
+    else if (keypad[9])
+    {
+        registers[Vx] = 9;
+    }
+    else if (keypad[10])
+    {
+        registers[Vx] = 10;
+    }
+    else if (keypad[11])
+    {
+        registers[Vx] = 11;
+    }
+    else if (keypad[12])
+    {
+        registers[Vx] = 12;
+    }
+    else if (keypad[13])
+    {
+        registers[Vx] = 13;
+    }
+    else if (keypad[14])
+    {
+        registers[Vx] = 14;
+    }
+    else if (keypad[15])
+    {
+        registers[Vx] = 15;
+    }
+    else
+    {
+        pc -= 2;
+    }
+}
+
+// set delay Timer = Vx LD DT, Vx
+void Chip8::OP_Fx15()
+{
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+
+    delayTimer = registers[Vx];
+}
+
+// set sound timer = Vx LD ST, Vx
+void Chip8::OP_Fx18()
+{
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+
+    soundTimer = registers[Vx];
+}
+
+// Set I = I + Vx, ADD I, Vx
+void Chip8::OP_Fx1E()
+{
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+
+    index += registers[Vx];
+}
+
+// Set I = location of sprite for digit Vx, LD F, Vx
+// start address is 0x50, multiply digit by 5
+void Chip8::OP_Fx29()
+{
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+    uint8_t digit = registers[Vx];
+
+    index = FONTSET_START_ADDRESS + (5 * digit);
+}
+
+//Store BCD representation of Vx in memory location I, I+1, and I+2, LD B, Vx
+void Chip8::OP_Fx33()
+{
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+    uint8_t value = registers[Vx];
+
+    // Ones-place 
+    memory[index + 2] = value % 10;
+    value /= 10;
+
+    // Tens-place
+    memory[index + 1] = value % 10;
+    value /= 10;
+
+    // Hundres-place
+    memory[index] = value % 10;
+}
+
+// Store registers V0 through Vx in memory starting at location I, LD [I], Vx
+void Chip8::OP_FX55()
+{
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+    
+    for (uint8_t i = 0; i <= Vx; ++i)
+    {
+        memory[index + i] = registers[i];
+    }
+}
+
+// Store registers V0 through Vx in memory starting at location I, LD [I], Vx
+void Chip8::OP_FX65()
+{
+    uint8_t Vx = (opcode & 0x0F00u) >> 8u;
+    
+    for (uint8_t i = 0; i <= Vx; ++i)
+    {
+        registers[i] = memory[index + i];
+    }
 }
 
 
